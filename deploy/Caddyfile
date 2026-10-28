@@ -1,0 +1,27 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	# Caddy proxies WebSocket upgrades (Socket.IO at /socket.io) automatically.
+	# The API sets its own security headers (helmet); only HSTS is added here.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	request_body {
+		max_size 1MB
+	}
+
+	reverse_proxy api:3000 {
+		health_uri /api/health
+		health_interval 15s
+		# Keep long-lived Socket.IO connections open across Caddy config reloads.
+		stream_close_delay 5m
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

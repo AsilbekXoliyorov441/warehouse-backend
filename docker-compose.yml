@@ -1,0 +1,46 @@
+name: stockpulse
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stockpulse
+      POSTGRES_PASSWORD: stockpulse
+      POSTGRES_DB: stockpulse
+    ports:
+      - '${DB_HOST_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Creates the separate stockpulse_test database on first start.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stockpulse -d stockpulse']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://stockpulse:stockpulse@db:5432/stockpulse?schema=public
+      # Development-only secrets. Generate real ones for any shared environment.
+      JWT_ACCESS_SECRET: dev-access-secret-change-me-0123456789abcdef
+      JWT_ACCESS_TTL: 15m
+      REFRESH_TOKEN_SECRET: dev-refresh-secret-change-me-0123456789abcdef
+      REFRESH_TOKEN_TTL_DAYS: 7
+      FRONTEND_ORIGIN: http://localhost:5173
+      COOKIE_SECURE: 'false'
+    ports:
+      - '${API_HOST_PORT:-3000}:3000'
+    # Apply pending migrations before starting. Seeding is a separate, explicit step.
+    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+
+volumes:
+  pgdata:

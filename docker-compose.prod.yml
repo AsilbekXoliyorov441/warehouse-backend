@@ -1,0 +1,85 @@
+# Production stack: PostgreSQL + API + Caddy (automatic HTTPS, WebSocket proxying).
+#
+#   cp .env.production.example .env.production   # fill in real values
+#   ./scripts/deploy.sh
+#
+# Only Caddy publishes ports (80/443). PostgreSQL and the API are reachable on the internal
+# network only.
+name: stockpulse-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options: { max-size: '20m', max-file: '5' }
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-stockpulse}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    shm_size: 256mb
+    logging: *default-logging
+
+  # One-off release step: applies pending migrations, then exits. The API waits for it.
+  migrate:
+    image: stockpulse-api:${API_IMAGE_TAG:-latest}
+    build: .
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-stockpulse}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    restart: 'no'
+
+  api:
+    image: stockpulse-api:${API_IMAGE_TAG:-latest}
+    build: .
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-stockpulse}?schema=public&connection_limit=${DB_CONNECTION_LIMIT:-10}
+      # Caddy is the single proxy hop in front of the API.
+      TRUST_PROXY: 1
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 20s
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env.production}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    logging: *default-logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
