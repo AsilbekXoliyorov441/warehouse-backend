@@ -172,7 +172,7 @@ missing or invalid. See [`.env.example`](.env.example).
 | `JWT_ACCESS_TTL` | | `15m` | `900s`, `15m`, `1h` |
 | `REFRESH_TOKEN_SECRET` | ✔ | | ≥ 32 chars, HMAC key for refresh-token hashes |
 | `REFRESH_TOKEN_TTL_DAYS` | | `7` | |
-| `FRONTEND_ORIGIN` | ✔ | | Comma-separated allowlist (CORS, Socket.IO, CSRF check). `*` rejected in production |
+| `FRONTEND_ORIGIN` | ✔ | | Comma-separated allowlist (CORS, Socket.IO, CSRF check), or `*` for any website (public practice API) |
 | `COOKIE_SECURE` | | `false` | **Must be `true` in production** (enforced) |
 | `COOKIE_SAMESITE` | | `strict` | `strict` \| `lax` \| `none` (`none` requires secure) |
 | `TRUST_PROXY` | | `0` | Number of proxy hops, so rate limits see real client IPs |
@@ -180,6 +180,8 @@ missing or invalid. See [`.env.example`](.env.example).
 | `MANAGERS_CAN_MANAGE_PRODUCTS` | | `false` | Policy switch granting MANAGER catalog write access |
 | `AUTH_RATE_LIMIT` / `AUTH_RATE_TTL_SECONDS` | | `10` / `60` | Per-IP limit for login, register, refresh |
 | `OUTBOX_POLL_INTERVAL_MS` | | `1000` | Fallback poll; delivery is normally triggered on commit |
+| `SWAGGER_ENABLED` | | on, except in production | Serve Swagger UI at `/api/docs` |
+| `SEED_DEMO_DATA` | | `false` | `true` lets the sample-data seed run in production (shared demo logins) |
 
 Generate secrets with:
 `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`

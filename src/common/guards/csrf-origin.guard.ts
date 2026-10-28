@@ -17,7 +17,7 @@ export class CsrfOriginGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<AppRequest>();
     const origin = req.header('origin');
-    if (origin && !this.config.allowedOrigins.includes(origin)) {
+    if (origin && !this.config.isOriginAllowed(origin)) {
       throw new AppException(403, ErrorCode.CSRF_ORIGIN_REJECTED, 'Request origin is not allowed');
     }
     if (!origin && req.header('sec-fetch-site') === 'cross-site') {

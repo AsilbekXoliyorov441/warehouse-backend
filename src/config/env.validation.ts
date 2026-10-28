@@ -4,6 +4,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Matches,
   Max,
@@ -91,6 +92,12 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(50)
   OUTBOX_POLL_INTERVAL_MS = 1000;
+
+  /** Serve Swagger UI at /api/docs. Unset = on everywhere except production. */
+  @IsOptional()
+  @Transform(toBool)
+  @IsBoolean()
+  SWAGGER_ENABLED?: boolean;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
@@ -102,11 +109,10 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       .join('\n  ');
     throw new Error(`Invalid environment configuration:\n  ${details}`);
   }
-  if (env.NODE_ENV === 'production') {
-    if (!env.COOKIE_SECURE) throw new Error('COOKIE_SECURE must be true in production');
-    if (env.FRONTEND_ORIGIN.split(',').some((o) => o.trim() === '*')) {
-      throw new Error('FRONTEND_ORIGIN must be an explicit allowlist in production');
-    }
+  // FRONTEND_ORIGIN=* is allowed in production on purpose: public practice deployments let
+  // students call the API from any localhost port or hosting domain.
+  if (env.NODE_ENV === 'production' && !env.COOKIE_SECURE) {
+    throw new Error('COOKIE_SECURE must be true in production');
   }
   if (env.COOKIE_SAMESITE === 'none' && !env.COOKIE_SECURE) {
     throw new Error('COOKIE_SAMESITE=none requires COOKIE_SECURE=true');

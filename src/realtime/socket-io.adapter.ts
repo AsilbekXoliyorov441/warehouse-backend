@@ -3,24 +3,29 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import type { ServerOptions } from 'socket.io';
 
 /**
- * Socket.IO server with the same explicit origin allowlist as HTTP CORS. `allowRequest` also
+ * Socket.IO server with the same origin rule as HTTP CORS (FRONTEND_ORIGIN). `allowRequest` also
  * rejects cross-origin WebSocket upgrades, which CORS alone does not cover.
  */
 export class ConfiguredSocketIoAdapter extends IoAdapter {
   constructor(
     app: INestApplicationContext,
-    private readonly allowedOrigins: string[],
+    private readonly isOriginAllowed: (origin: string) => boolean,
   ) {
     super(app);
   }
 
   override createIOServer(port: number, options?: ServerOptions): unknown {
+    const allowed = (origin: string | undefined): boolean =>
+      !origin || this.isOriginAllowed(origin);
     return super.createIOServer(port, {
       ...options,
-      cors: { origin: this.allowedOrigins, credentials: false },
+      cors: {
+        origin: (origin: string | undefined, cb: (err: Error | null, ok?: boolean) => void) =>
+          cb(null, allowed(origin)),
+        credentials: false,
+      },
       allowRequest: (req, callback) => {
-        const origin = req.headers.origin;
-        callback(null, !origin || this.allowedOrigins.includes(origin));
+        callback(null, allowed(req.headers.origin));
       },
       maxHttpBufferSize: 64 * 1024,
       pingInterval: 25_000,

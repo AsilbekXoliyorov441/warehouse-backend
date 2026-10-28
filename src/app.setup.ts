@@ -23,15 +23,18 @@ export function configureApp(app: INestApplication, options: { swagger?: boolean
   app.use(helmet());
   app.use(cookieParser());
   app.enableCors({
-    origin: config.allowedOrigins,
+    // `true` reflects the request origin: with credentials the browser rejects a literal `*`.
+    origin: config.allowAnyOrigin ? true : config.allowedOrigins,
     credentials: true, // required so the browser sends the HttpOnly refresh cookie
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
     exposedHeaders: ['X-Request-Id'],
   });
   app.useGlobalPipes(createValidationPipe());
-  app.useWebSocketAdapter(new ConfiguredSocketIoAdapter(app, config.allowedOrigins));
+  app.useWebSocketAdapter(
+    new ConfiguredSocketIoAdapter(app, (origin) => config.isOriginAllowed(origin)),
+  );
   app.enableShutdownHooks();
 
-  if (options.swagger ?? !config.isProduction) setupSwagger(app, API_PREFIX);
+  if (options.swagger ?? config.swaggerEnabled) setupSwagger(app, API_PREFIX);
 }

@@ -1,13 +1,15 @@
 /**
- * Development seed. Idempotent: safe to run repeatedly. Refuses to run in production so the
- * well-known sample credentials below can never reach a real deployment.
+ * Development seed. Idempotent: safe to run repeatedly (also resets the sample passwords).
+ * Refuses to run in production so the well-known sample credentials below never reach a real
+ * deployment, unless SEED_DEMO_DATA=true (public practice deployments with shared demo logins).
  */
 import { BranchRole, MovementDirection, MovementType, Prisma, PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && process.env.SEED_DEMO_DATA !== 'true') {
   console.error(
-    'Refusing to seed: NODE_ENV=production. The seed contains public sample credentials.',
+    'Refusing to seed: NODE_ENV=production. The seed contains public sample credentials. ' +
+      'Set SEED_DEMO_DATA=true to seed a public practice deployment anyway.',
   );
   process.exit(1);
 }
